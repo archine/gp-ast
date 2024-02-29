@@ -150,27 +150,33 @@ func parseFile(filePath string, fileSet *token.FileSet) {
 			if father == nil {
 				log.Fatalf("[%s] API method father lost: %s", filePath, t.Name.Name)
 			}
-			method := core.MethodInfo{
-				Annotations: make(map[string]string),
-				Name:        t.Name.Name,
-			}
+			var methods []*core.MethodInfo
+			var annos map[string]string
 			for _, comment := range t.Decs.Start {
 				subMatch := restfulRegex.FindStringSubmatch(comment) // parse api path
 				if len(subMatch) > 0 {
+					if annos == nil {
+						annos = make(map[string]string)
+					}
+					method := &core.MethodInfo{
+						Name:        t.Name.Name,
+						Annotations: annos,
+					}
 					if unicode.IsLower(rune(method.Name[0])) {
 						log.Fatalf("[%s] invalid method name: [%s], must start with uppercase", filePath, method.Name)
 					}
 					method.Method = subMatch[1]
 					method.ApiPath = path.Join(father.BasePath, subMatch[2])
+					methods = append(methods, method)
 					continue
 				}
 				subMatch = annoRegex.FindStringSubmatch(comment) // parse annotations
-				if len(subMatch) > 0 {
-					method.Annotations[subMatch[1]] = subMatch[3]
+				if len(subMatch) > 0 && annos != nil {
+					annos[subMatch[1]] = subMatch[3]
 				}
 			}
-			if method.ApiPath != "" {
-				father.apiCache = append(father.apiCache, &method)
+			if len(methods) > 0 {
+				father.apiCache = append(father.apiCache, methods...)
 			}
 		}
 		return true
