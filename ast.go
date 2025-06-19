@@ -1,4 +1,4 @@
-package gp_ast
+package main
 
 import (
 	"flag"
@@ -96,8 +96,8 @@ func (p *astParser) initRegexes() {
 	p.dirRegex = regexp.MustCompile(fmt.Sprintf("(.*)+(%s.*)/+(.*)", filepath.Base(projectRoot)))
 }
 
-// Main Parse project controllers and API methods
-func Main() {
+// Parse project controllers and API methods
+func main() {
 	newParser().parse()
 }
 
