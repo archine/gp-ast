@@ -3,9 +3,9 @@ module github.com/archine/gp-ast
 go 1.21
 
 require (
-	github.com/archine/ast-base v1.0.0
+	github.com/archine/ast-base v1.0.3
 	github.com/dave/dst v0.27.3
-	github.com/dave/jennifer v1.7.0
+	github.com/dave/jennifer v1.7.1
 )
 
 require (

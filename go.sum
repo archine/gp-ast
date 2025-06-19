@@ -1,9 +1,9 @@
-github.com/archine/ast-base v1.0.0 h1:EAWKHHsfMVZOsbUYtxWmuEoNmQig9JgydfVm5SFHOh4=
-github.com/archine/ast-base v1.0.0/go.mod h1:NiwPRYcg0QW1y5szR6Z/5ACMnUqxiuERYUQ6/RpLaYE=
+github.com/archine/ast-base v1.0.3 h1:AIhXG5Zt4Cnvs90y1JOX6ael7+vC3G/m5GAcGgLjOt4=
+github.com/archine/ast-base v1.0.3/go.mod h1:NiwPRYcg0QW1y5szR6Z/5ACMnUqxiuERYUQ6/RpLaYE=
 github.com/dave/dst v0.27.3 h1:P1HPoMza3cMEquVf9kKy8yXsFirry4zEnWOdYPOoIzY=
 github.com/dave/dst v0.27.3/go.mod h1:jHh6EOibnHgcUW3WjKHisiooEkYwqpHLBSX1iOBhEyc=
-github.com/dave/jennifer v1.7.0 h1:uRbSBH9UTS64yXbh4FrMHfgfY762RD+C7bUPKODpSJE=
-github.com/dave/jennifer v1.7.0/go.mod h1:nXbxhEmQfOZhWml3D1cDK5M1FLnMSozpbFN/m3RmGZc=
+github.com/dave/jennifer v1.7.1 h1:B4jJJDHelWcDhlRQxWeo0Npa/pYKBLrirAQoTN45txo=
+github.com/dave/jennifer v1.7.1/go.mod h1:nXbxhEmQfOZhWml3D1cDK5M1FLnMSozpbFN/m3RmGZc=
 github.com/sergi/go-diff v1.2.0 h1:XU+rvMAioB0UC3q1MFrIQy4Vo5/4VsRDQQXHsEya6xQ=
 github.com/sergi/go-diff v1.2.0/go.mod h1:STckp+ISIX8hZLjrqAeVduY0gWCT9IjLuqbuNXdaHfM=
 golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 h1:6zppjxzCulZykYSLyVDYbneBfbaBIQPYMevg0bEwv2s=
