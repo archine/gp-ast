@@ -7,7 +7,7 @@
 确保 GoPath 中的 bin 目录存在系统环境变量中，或者安装后移动到系统环境变量配置了的目录中。
 
 ```bash
-go install github.com/archine/gp-ast/v2@2.0.0
+go install github.com/archine/gp-ast/v2@v2.0.0
 ```
 
 ### 2、参数
