@@ -1,6 +1,6 @@
 ![](https://img.shields.io/badge/version-1.x-green.svg) &nbsp; ![](https://img.shields.io/badge/builder-success-green.svg) &nbsp;
 
-> Go gin-plus框架字节码工具
+> [Gin-Plus-v3](https://github.com/archine/gin-plus) 配套工具，提供 AST 解析功能。
 
 ### 1、安装
 
@@ -21,11 +21,25 @@ go install github.com/archine/gp-ast@latest
 
 ### 3、使用
 
-**gin-plus版本需 3.x**
+在 main 文件中添加 ``go:generate gp-ast`` 注释
 
 ```go
+package main
+
 //go:generate gp-ast
 func main() {
-    application.Default().Run()
+	application.Default().Run()
 }
 ```
+
+然后在 main.go 所在目录下执行以下命令：
+
+```bash
+go generate
+```
+
+### 4、输出
+
+生成的文件会存在于 root 所在目录下
+
+- **controller_init.go**: API 接口信息
