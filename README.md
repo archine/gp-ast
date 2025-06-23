@@ -1,6 +1,6 @@
 ![](https://img.shields.io/badge/version-2.x-green.svg) &nbsp; ![](https://img.shields.io/badge/builder-success-green.svg) &nbsp;
 
-> [Gin-Plus](https://github.com/archine/gin-plus) 配套工具，提供 AST 解析功能。
+> [Gin-Plus-v4](https://github.com/archine/gin-plus) 配套工具，提供 AST 解析功能。
 
 ### 1、安装
 
