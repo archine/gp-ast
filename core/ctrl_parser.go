@@ -3,8 +3,8 @@ package core
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"github.com/archine/gp-ast/v2/enum"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -63,27 +63,28 @@ func (p *CtrlParser) ParseStruct(genDecl *dst.GenDecl, structMeta *StructMeta) {
 	p.ctrlCache[structMeta.Name] = ctrl
 }
 
-func (p *CtrlParser) ParseMethod(funcDecl *dst.FuncDecl) {
-	if funcDecl.Decs.Start == nil || funcDecl.Name.Name == "PostConstruct" {
-		return
+func (p *CtrlParser) ParseMethod(funcDecl *dst.FuncDecl) error {
+	if funcDecl.Decs.Start == nil {
+		return nil
 	}
 
 	// Find parent controller
 	receiverName := searchReceiver(funcDecl.Recv.List)
+
 	father := p.ctrlCache[receiverName]
 	if father == nil {
-		return
+		return nil
 	}
 
-	if unicode.IsLower([]rune(funcDecl.Name.Name)[0]) {
-		log.Fatalf("API method %s.%s must start with an uppercase letter", receiverName, funcDecl.Name.Name)
+	if len(funcDecl.Name.Name) > 0 && unicode.IsLower([]rune(funcDecl.Name.Name)[0]) {
+		return fmt.Errorf("method %s must start with an uppercase letter", funcDecl.Name.Name)
 	}
 
 	var methods []*MethodInfo
 	var annotations map[string]string
 
+	// Parse method comments to extract API routes and annotation information
 	for _, comment := range funcDecl.Decs.Start {
-		// Try to parse as API method
 		if subMatch := p.restfulRegex.FindStringSubmatch(comment); len(subMatch) > 0 {
 			method := &MethodInfo{
 				Name:    funcDecl.Name.Name,
@@ -92,7 +93,6 @@ func (p *CtrlParser) ParseMethod(funcDecl *dst.FuncDecl) {
 			}
 			methods = append(methods, method)
 		} else if subMatch = p.annoRegex.FindStringSubmatch(comment); len(subMatch) > 0 {
-			// Parse annotations
 			if annotations == nil {
 				annotations = make(map[string]string)
 			}
@@ -107,6 +107,8 @@ func (p *CtrlParser) ParseMethod(funcDecl *dst.FuncDecl) {
 			p.annoCache[methods[0].APIPath] = annotations
 		}
 	}
+
+	return nil
 }
 
 func (p *CtrlParser) Generate(saveToPath string) error {
@@ -115,7 +117,7 @@ func (p *CtrlParser) Generate(saveToPath string) error {
 	}
 
 	saveFullPath := filepath.Join(saveToPath, enum.ApiDefFile)
-	file, err := os.OpenFile(saveFullPath, os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(saveFullPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -131,7 +133,7 @@ func (p *CtrlParser) Generate(saveToPath string) error {
 	return err
 }
 
-// Find the controller name from method receiver
+// searchReceiver extracts controller name from method receiver, supports pointer type receivers
 func searchReceiver(fields []*dst.Field) string {
 	for _, field := range fields {
 		if starExpr, ok := field.Type.(*dst.StarExpr); ok {

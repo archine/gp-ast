@@ -1,12 +1,12 @@
 package enum
 
 const (
-	BeanFlag = 1 << iota // Bean struct flag
-	MvcFlag              // Mvc struct flag
+	MvcFlag  = 1 << iota // Flag indicating MVC structure
+	BeanFlag             // Flag indicating Bean structure
 
-	BeanInitFile = "gp_bean_init.go" // Bean initialization file name
-	ApiDefFile   = "gp_api.def"      // API definition file name
+	BeanInitFile = "gp_bean_init.go" // Generated Bean initialization file
+	ApiDefFile   = ".gp_api.json"    // Generated API definition file
 
-	BeanImportPath = "github.com/archine/gin-plus/v4/ioc" // Bean import path
-	MvcImportPath  = "github.com/archine/gin-plus/v4/mvc" // Mvc import path
+	BeanImportPath = "github.com/archine/gin-plus/v4/ioc" // Import path for Bean functionality
+	MvcImportPath  = "github.com/archine/gin-plus/v4/mvc" // Import path for MVC functionality
 )

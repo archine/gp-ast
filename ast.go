@@ -1,10 +1,11 @@
-package gp_ast
+package main
 
 import (
 	"flag"
 	"fmt"
 	"github.com/archine/gp-ast/v2/core"
 	"github.com/archine/gp-ast/v2/enum"
+	"github.com/archine/gp-ast/v2/util"
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
 	"go/parser"
@@ -17,10 +18,9 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"unicode"
 )
 
-type AstParser struct {
+type astParser struct {
 	scanPackages    []string
 	scanSkips       []string
 	appContext      string
@@ -30,93 +30,84 @@ type AstParser struct {
 	beanParser      *core.BeanParser
 }
 
-func Main() {
+func main() {
 	var scanPkg, scanSkip, appContext string
-	flag.StringVar(&scanPkg, "scan_pkg", ".", "扫描的包名, 默认'.' 表示扫描当前绝对路径下的所有包。多个包名用英文逗号分隔")
-	flag.StringVar(&scanSkip, "scan_skip", "", "扫描时要跳过的包名，默认 'dto,vo,po'。当指定的目录为最顶层，那么其子目录也会被忽略。多个包名用英文逗号分隔")
-	flag.StringVar(&appContext, "context", "/", "应用的上下文路径, 默认 '/'，如果不以 '/' 开头会自动补充。")
+	flag.StringVar(&scanPkg, "scan_pkg", ".", "Package names to scan, default '.' means scan all packages under current absolute path. Multiple package names separated by commas")
+	flag.StringVar(&scanSkip, "scan_skip", "dto,vo", "Package names to skip during scanning, default 'dto,vo'. When the specified directory is at the top level, its subdirectories will also be ignored. Multiple package names separated by commas")
+	flag.StringVar(&appContext, "context", "/", "Application context path, default '/'. If it doesn't start with '/', it will be automatically added.")
 	flag.Parse()
 
-	astParser := &AstParser{
+	p := &astParser{
 		fileSet: token.NewFileSet(),
 	}
 
 	if !strings.HasPrefix(appContext, "/") {
 		appContext = "/" + appContext
 	}
-	astParser.appContext = path.Clean(appContext)
+	p.appContext = path.Clean(appContext)
 
 	if scanPkg != "" {
-		split := strings.Split(scanPkg, ",")
-		for _, pkg := range split {
-			pkg = strings.TrimSpace(pkg)
-			pkg = strings.Trim(pkg, "/")
-			if pkg != "" {
-				pkgAbs, err := filepath.Abs(pkg)
-				if err != nil {
-					log.Fatalf("failed to get absolute path for scan package: %s, error: %s", pkg, err.Error())
-				}
-				if _, err = os.Stat(pkgAbs); os.IsNotExist(err) {
-					log.Fatalf("scan package does not exist: %s", pkgAbs)
-				}
-				astParser.scanPackages = append(astParser.scanPackages, pkgAbs)
+		for _, pkg := range util.SplitAndTrim(scanPkg) {
+			pkgAbs, err := filepath.Abs(pkg)
+			if err != nil {
+				log.Fatalf("❌ Failed to resolve scan package path '%s': %s\nPlease check if the path exists or permissions are correct", pkg, err.Error())
 			}
+			if _, err = os.Stat(pkgAbs); os.IsNotExist(err) {
+				log.Fatalf("❌ Specified scan package path does not exist: %s\nPlease confirm the path is correct", pkgAbs)
+			}
+			p.scanPackages = append(p.scanPackages, pkgAbs)
 		}
 	}
 
 	if scanSkip != "" {
-		split := strings.Split(scanSkip, ",")
-		for _, skip := range split {
-			skip = strings.TrimSpace(skip)
-			skip = strings.Trim(skip, "/")
-			if skip != "" {
-				astParser.scanSkips = append(astParser.scanSkips, skip)
-			}
-		}
+		p.scanSkips = append(p.scanSkips, util.SplitAndTrim(scanSkip)...)
 	}
 
 	pwd, _ := os.Getwd()
-	astParser.ctrlParser = core.NewCtrlParser(astParser.appContext)
-	astParser.beanParser = core.NewBeanParser()
-	astParser.importPathRegex = regexp.MustCompile(fmt.Sprintf("(.*/)(%s.*)/(.*)", filepath.Base(pwd)))
+	p.ctrlParser = core.NewCtrlParser(p.appContext)
+	p.beanParser = core.NewBeanParser()
+	p.importPathRegex = regexp.MustCompile(fmt.Sprintf("(.*/)(%s.*)/(.*)", filepath.Base(pwd)))
 
-	astParser.doScan()
+	p.doScan()
 
-	err := astParser.ctrlParser.Generate(pwd)
+	err := p.ctrlParser.Generate(pwd)
 	if err != nil {
-		log.Fatalf("生成控制器初始化代码失败: %s", err.Error())
+		log.Fatalf("❌ Failed to generate controller initialization code: %s\nPlease check generation directory permissions or confirm controller structure is correct", err.Error())
 	}
 
-	err = astParser.beanParser.Generate(pwd)
+	err = p.beanParser.Generate(pwd)
 	if err != nil {
-		log.Fatalf("生成 Bean 初始化代码失败: %s", err.Error())
+		log.Fatalf("❌ Failed to generate Bean initialization code: %s\nPlease check generation directory permissions or confirm Bean structure is correct", err.Error())
 	}
 
-	log.Printf("项目解析完成，初始化文件已保存至: %s", pwd)
+	log.Printf("✅ Project parsing completed, initialization files saved to: %s", pwd)
 }
 
-func (p *AstParser) doScan() {
+func (p *astParser) doScan() {
 	for _, scanPackage := range p.scanPackages {
 		err := filepath.Walk(scanPackage, func(filePath string, fileInfo fs.FileInfo, err error) error {
-			// Skip if there's an error accessing the file
-			if strings.HasPrefix(filePath, ".") {
-				return filepath.SkipDir
+			if err != nil {
+				return fmt.Errorf("error accessing file %s: %w", filePath, err)
 			}
 
-			if fileInfo.IsDir() {
-				// Skip directories that match the skip list
-				if slices.Contains(p.scanSkips, fileInfo.Name()) {
-					return filepath.SkipDir // Skip this directory and its subdirectories
+			if strings.HasPrefix(filepath.Base(filePath), ".") {
+				if fileInfo.IsDir() {
+					return filepath.SkipDir
 				}
 				return nil
 			}
 
-			// Skip non-Go files, generated files, and test files
+			if fileInfo.IsDir() {
+				if slices.Contains(p.scanSkips, fileInfo.Name()) {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+
 			if fileInfo.Name() == enum.BeanInitFile ||
 				fileInfo.Name() == enum.ApiDefFile ||
 				!strings.HasSuffix(fileInfo.Name(), ".go") ||
 				strings.HasSuffix(filePath, "_test.go") {
-
 				return nil
 			}
 
@@ -124,24 +115,33 @@ func (p *AstParser) doScan() {
 		})
 
 		if err != nil {
-			log.Fatalf("analyze the AST syntax error, %s", err.Error())
+			log.Fatalf("❌ AST syntax analysis failed: %s", err.Error())
 		}
 	}
 }
 
 // parseFile processes each Go file
-func (p *AstParser) parseFile(filePath string) error {
+func (p *astParser) parseFile(filePath string) error {
 	var dFile *dst.File
 	dFile, err := decorator.ParseFile(p.fileSet, filePath, nil, parser.ParseComments)
 	if err != nil {
-		return fmt.Errorf("failed to parse %s, %s", filePath, err.Error())
+		return fmt.Errorf("failed to parse file %s: %s\nPlease check if file syntax is correct", filePath, err.Error())
 	}
 
 	var beanImportAlias, mvcImportAlias string
-	var structFlag int // 0: no struct, 1: mvc, 2: bean
+	var structFlag int // bit flags: 0=no relevant imports, 1=mvc, 2=bean
 
+	// Scan import statements to identify MVC and Bean framework imports
 	for _, importSpec := range dFile.Imports {
 		importPath := strings.Trim(importSpec.Path.Value, "\"")
+		if importPath == enum.MvcImportPath {
+			structFlag |= enum.MvcFlag
+			if importSpec.Name != nil {
+				mvcImportAlias = importSpec.Name.Name
+			} else {
+				mvcImportAlias = "mvc"
+			}
+		}
 		if importPath == enum.BeanImportPath {
 			structFlag |= enum.BeanFlag
 			if importSpec.Name != nil {
@@ -151,16 +151,9 @@ func (p *AstParser) parseFile(filePath string) error {
 			}
 			continue
 		}
-		if importPath == enum.MvcImportPath {
-			structFlag |= enum.MvcFlag
-			if importSpec.Name != nil {
-				mvcImportAlias = importSpec.Name.Name
-			} else {
-				mvcImportAlias = "mvc"
-			}
-		}
 	}
-	// 如果当前文件没有导入 mvc 或 bean 包，则不需要解析
+
+	// If no relevant imports are found, skip further processing
 	if structFlag == 0 {
 		return nil
 	}
@@ -168,42 +161,54 @@ func (p *AstParser) parseFile(filePath string) error {
 	for _, decl := range dFile.Decls {
 		switch node := decl.(type) {
 		case *dst.GenDecl:
-			if node.Tok == token.TYPE {
-				if len(node.Specs) > 0 {
-					if structSpec, ok := node.Specs[0].(*dst.TypeSpec); ok {
-						if structType, ok := structSpec.Type.(*dst.StructType); ok {
-							structMeta := &core.StructMeta{
-								Name:  structSpec.Name.Name,
-								Pkg:   dFile.Name.Name,
-								IPath: p.importPathRegex.FindStringSubmatch(filePath)[2],
+			if node.Tok == token.TYPE && len(node.Specs) > 0 {
+				if structSpec, ok := node.Specs[0].(*dst.TypeSpec); ok {
+					if structType, ok := structSpec.Type.(*dst.StructType); ok {
+						// Safe import path extraction to prevent regex match failure
+						var importPath string
+						matches := p.importPathRegex.FindStringSubmatch(filePath)
+						if len(matches) > 2 {
+							importPath = matches[2]
+						}
+
+						structMeta := &core.StructMeta{
+							Name:  structSpec.Name.Name,
+							Pkg:   dFile.Name.Name,
+							IPath: importPath,
+						}
+
+						for _, field := range structType.Fields.List {
+							selectorExpr, ok := field.Type.(*dst.SelectorExpr)
+							if !ok {
+								continue
 							}
 
-							for _, field := range structType.Fields.List {
-								if selectorExpr, ok := field.Type.(*dst.SelectorExpr); ok {
-									if x, ok := selectorExpr.X.(*dst.Ident); ok {
-										if x.Name == mvcImportAlias && selectorExpr.Sel.Name == "Controller" {
-											p.ctrlParser.ParseStruct(node, structMeta)
-											p.beanParser.ParseBean(structMeta)
-											continue
-										}
-										if x.Name == beanImportAlias && selectorExpr.Sel.Name == "Bean" {
-											p.beanParser.ParseBean(structMeta)
-										}
-									}
-								}
+							x, ok := selectorExpr.X.(*dst.Ident)
+							if !ok {
+								continue
+							}
+
+							switch {
+							case x.Name == mvcImportAlias && selectorExpr.Sel.Name == "Controller":
+								p.ctrlParser.ParseStruct(node, structMeta)
+								p.beanParser.ParseBean(structMeta)
+							case x.Name == beanImportAlias && selectorExpr.Sel.Name == "Bean":
+								p.beanParser.ParseBean(structMeta)
 							}
 						}
 					}
 				}
 			}
 		case *dst.FuncDecl:
-			if node.Recv != nil && len(node.Recv.List) > 0 || unicode.IsLower([]rune(node.Name.Name)[0]) {
-				if structFlag&enum.MvcFlag != 0 {
-					p.ctrlParser.ParseMethod(node)
+			if node.Recv == nil || len(node.Recv.List) == 0 {
+				continue
+			}
+
+			if structFlag&enum.MvcFlag != 0 {
+				if err = p.ctrlParser.ParseMethod(node); err != nil {
+					return fmt.Errorf("failed to parse controller method in file %s: %w", filePath, err)
 				}
 			}
-		default:
-
 		}
 	}
 
